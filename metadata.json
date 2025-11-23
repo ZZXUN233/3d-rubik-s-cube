@@ -1,0 +1,5 @@
+{
+  "name": "3D Rubik's Cube",
+  "description": "A fully functional 3D Rubik's Cube game built with React Three Fiber. Supports keyboard controls (R, L, U, D, F, B), automatic scrambling, move counting, and a timer.",
+  "requestFramePermissions": []
+}
