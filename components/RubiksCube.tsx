@@ -12,12 +12,12 @@ import { CubeMove } from '../types';
 // +X: Right, -X: Left, +Y: Up, -Y: Down, +Z: Back (away from camera), -Z: Front (toward camera)
 const COLORS = {
   base: '#1F2937', // Dark Gray/Black Plastic (Tailwind gray-800)
-  U: '#FFFFFF',    // Up - Pure White
-  D: '#FFD700',    // Down - Bright Yellow
-  R: '#FF0000',    // Right - Bright Red
-  L: '#FFA500',    // Left - Bright Orange
+  D: '#FFD700',    // Up - Bright Yellow (国际规则：上黄)
+  U: '#FFFFFF',    // Down - Pure White
+  R: '#FF0000',    // Right - Bright Red (国际规则：右红)
+  B: '#0000FF',    // Left - Bright Blue (国际规则：左蓝)
   F: '#00FF00',    // Front - Bright Green
-  B: '#0000FF',    // Back - Bright Blue
+  L: '#FFA500',    // Back - Bright Orange
 };
 
 interface RubiksCubeProps {
@@ -143,10 +143,10 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete 
   }));
 
   const parseMove = (char: string, isReverse: boolean, speed: number): CubeMove | null => {
-    const direction = isReverse ? 1 : -1; 
+    const direction = isReverse ? 1 : -1;
     let axis: 'x'|'y'|'z' = 'x';
     let slice = 0;
-    let dirMult = 1; 
+    let dirMult = 1;
 
     switch (char.toUpperCase()) {
       case 'R': axis = 'x'; slice = 1; dirMult = -1; break;
@@ -155,6 +155,9 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete 
       case 'D': axis = 'y'; slice = -1; dirMult = 1; break;
       case 'F': axis = 'z'; slice = 1; dirMult = -1; break;
       case 'B': axis = 'z'; slice = -1; dirMult = 1; break;
+      case 'Z': axis = 'z'; slice = 0; dirMult = -1; break; // Whole cube rotation around Z axis (yellow-white)
+      case 'Y': axis = 'y'; slice = 0; dirMult = -1; break; // Whole cube rotation around Y axis (blue-green)
+      case 'X': axis = 'x'; slice = 0; dirMult = -1; break; // Whole cube rotation around X axis (red-orange)
       default: return null;
     }
 
@@ -174,17 +177,23 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete 
       
       const activeCubies: THREE.Mesh[] = [];
       
-      cubiesRef.current.forEach(mesh => {
-        const pos = mesh.position;
-        let matches = false;
-        if (move.axis === 'x' && Math.abs(pos.x - move.slice) < 0.1) matches = true;
-        if (move.axis === 'y' && Math.abs(pos.y - move.slice) < 0.1) matches = true;
-        if (move.axis === 'z' && Math.abs(pos.z - move.slice) < 0.1) matches = true;
-        
-        if (matches) {
-          activeCubies.push(mesh);
-        }
-      });
+      // For whole cube rotation (slice = 0), select all cubies
+      if (move.slice === 0) {
+        activeCubies.push(...cubiesRef.current);
+      } else {
+        // For face rotation, select cubies on the specific slice
+        cubiesRef.current.forEach(mesh => {
+          const pos = mesh.position;
+          let matches = false;
+          if (move.axis === 'x' && Math.abs(pos.x - move.slice) < 0.1) matches = true;
+          if (move.axis === 'y' && Math.abs(pos.y - move.slice) < 0.1) matches = true;
+          if (move.axis === 'z' && Math.abs(pos.z - move.slice) < 0.1) matches = true;
+          
+          if (matches) {
+            activeCubies.push(mesh);
+          }
+        });
+      }
 
       const pivot = pivotRef.current;
       pivot.rotation.set(0, 0, 0);
