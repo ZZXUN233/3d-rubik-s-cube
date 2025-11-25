@@ -146,15 +146,17 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
   const parseMove = (moveName: string, isReverse: boolean, speed: number): CubeMove | null => {
     // 解析移动名称，支持完整魔方标记法
     const move = moveName.trim();
-    const isDouble = move.includes('2'); // 检查是否是180度转动
-    const isLowercase = move === move.toLowerCase() && !isDouble; // 检查是否是小写（两层转动）
-    const baseMove = isDouble ? move.replace('2', '') : move;
+    const is180Degree = move.includes('2'); // 检查是否是180度转动
+    const baseMove = is180Degree ? move.replace('2', '') : move;
     const baseChar = baseMove.toUpperCase();
+    const isLowercase = baseMove === baseMove.toLowerCase(); // 检查是否是小写（两层转动）
     
     let axis: 'x'|'y'|'z' = 'x';
     let slice = 0;
     let dirMult = 1;
-    let degrees = isDouble ? Math.PI : Math.PI / 2; // 180度或90度
+    let degrees = is180Degree ? Math.PI : Math.PI / 2; // 180度或90度
+    let isMiddleLayer = false; // 标记是否是中层转动
+    let isWholeCube = false;   // 标记是否是整体转动
 
     // 处理单层转动和两层转动
     if (['R', 'L', 'U', 'D', 'F', 'B'].includes(baseChar)) {
@@ -193,15 +195,15 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
     } else {
       // 处理中层转动和整体转动
       switch (baseChar) {
-        // 中层转动 - 修正slice值，中层应该是slice=0.5（中间层）
-        case 'E': axis = 'y'; slice = 0; dirMult = 1; break;  // 中层水平转动
-        case 'M': axis = 'x'; slice = 0; dirMult = -1; break; // 中层垂直转动
-        case 'S': axis = 'z'; slice = 0; dirMult = -1; break; // 中层前后转动
+        // 中层转动
+        case 'E': axis = 'y'; slice = 0; dirMult = 1; isMiddleLayer = true; break;  // 中层水平转动
+        case 'M': axis = 'x'; slice = 0; dirMult = -1; isMiddleLayer = true; break; // 中层垂直转动
+        case 'S': axis = 'z'; slice = 0; dirMult = -1; isMiddleLayer = true; break; // 中层前后转动
         
         // 整体转动
-        case 'Z': axis = 'z'; slice = 0; dirMult = -1; break; // 整体Z轴转动
-        case 'Y': axis = 'y'; slice = 0; dirMult = -1; break; // 整体Y轴转动
-        case 'X': axis = 'x'; slice = 0; dirMult = -1; break; // 整体X轴转动
+        case 'Z': axis = 'z'; slice = 0; dirMult = -1; isWholeCube = true; break; // 整体Z轴转动
+        case 'Y': axis = 'y'; slice = 0; dirMult = -1; isWholeCube = true; break; // 整体Y轴转动
+        case 'X': axis = 'x'; slice = 0; dirMult = -1; isWholeCube = true; break; // 整体X轴转动
         
         default: return null;
       }
@@ -212,7 +214,9 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
       slice,
       direction: (dirMult * (isReverse ? -1 : 1)) as 1 | -1,
       speed,
-      degrees
+      degrees,
+      isMiddleLayer,
+      isWholeCube
     };
   };
 
@@ -232,11 +236,16 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
         const pos = mesh.position;
         let matches = false;
         
-        // 整体转动 (slice = 0 且是整体转动操作)
-        if (move.slice === 0 && move.axis !== undefined) {
-          // 检查是否是整体转动（x, y, z）还是中层转动（E, M, S）
-          // 这里我们假设所有slice=0且axis不为空的都是整体转动
+        // 整体转动
+        if (move.isWholeCube) {
           matches = true;
+        }
+        // 中层转动
+        else if (move.isMiddleLayer) {
+          // 中层转动：选择中间层的方块
+          if (move.axis === 'x' && Math.abs(pos.x) < 0.1) matches = true;  // M: 中层垂直
+          if (move.axis === 'y' && Math.abs(pos.y) < 0.1) matches = true;  // E: 中层水平
+          if (move.axis === 'z' && Math.abs(pos.z) < 0.1) matches = true;  // S: 中层前后
         }
         // 单层转动 (slice = ±1) 和两层转动 (slice = ±2)
         else {

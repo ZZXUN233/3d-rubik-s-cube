@@ -16,6 +16,8 @@ export interface CubeMove {
   direction: 1 | -1; // 1 = 逆时针, -1 = 顺时针
   speed?: number; // 动画速度倍数
   degrees: number; // 转动角度 (90度或180度)
+  isMiddleLayer?: boolean; // 是否是中层转动
+  isWholeCube?: boolean;   // 是否是整体转动
 }
 
 export interface CubieData {
