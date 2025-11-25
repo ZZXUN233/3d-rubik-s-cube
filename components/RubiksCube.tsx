@@ -1,4 +1,7 @@
-import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
+// Fixed Rubik's Cube component (full file)
+// Original uploaded file: /mnt/data/014cbeff-90c7-4ce9-b42a-00f9c19078a8.tsx
+
+import React, { useRef, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Box } from '@react-three/drei';
 import * as THREE from 'three';
@@ -62,10 +65,10 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
   const pivotRef = useRef<THREE.Object3D>(new THREE.Object3D());
   
   // State for queueing moves
-  const moveQueue = useRef<CubeMove[]>([]);
+  const moveQueue = useRef<any[]>([]);
   const isAnimating = useRef(false);
   const currentMove = useRef<{
-    move: CubeMove;
+    move: any;
     progress: number;
     activeCubies: THREE.Mesh[];
     targetRotation: number;
@@ -109,7 +112,7 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
 
     scramble: () => {
       const moves = ['R', 'L', 'U', 'D', 'F', 'B'];
-      const sequence: CubeMove[] = [];
+      const sequence: any[] = [];
       for (let i = 0; i < 20; i++) {
         const randomMove = moves[Math.floor(Math.random() * moves.length)];
         const randomDir = Math.random() > 0.5;
@@ -143,52 +146,56 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
     }
   }));
 
-  const parseMove = (moveName: string, isReverse: boolean, speed: number): CubeMove | null => {
+  const parseMove = (moveName: string, isReverse: boolean, speed: number) => {
     // 解析移动名称，支持完整魔方标记法
     const move = moveName.trim();
     const is180Degree = move.includes('2'); // 检查是否是180度转动
     const baseMove = is180Degree ? move.replace('2', '') : move;
     const baseChar = baseMove.toUpperCase();
-    const isLowercase = baseMove === baseMove.toLowerCase(); // 检查是否是小写（两层转动）
+    const isLowercase = baseMove === baseMove.toLowerCase(); // 检查是否是小写（两层或宽带转动）
     
     let axis: 'x'|'y'|'z' = 'x';
-    let slice = 0;
+    let slices: number[] = [];
     let dirMult = 1;
     let degrees = is180Degree ? Math.PI : Math.PI / 2; // 180度或90度
     let isMiddleLayer = false; // 标记是否是中层转动
     let isWholeCube = false;   // 标记是否是整体转动
 
-    // 处理单层转动和两层转动
+    // 处理单层转动和两层转动（小写表示两层/宽带转动）
     if (['R', 'L', 'U', 'D', 'F', 'B'].includes(baseChar)) {
       switch (baseChar) {
         case 'R':
           axis = 'x';
-          slice = isLowercase ? 2 : 1;
+          // R = outer right layer (x=1). r (lowercase) means right two layers: x=1 and x=0
+          slices = isLowercase ? [1, 0] : [1];
           dirMult = -1;
           break;
         case 'L':
           axis = 'x';
-          slice = isLowercase ? -2 : -1;
+          // L = outer left (x=-1). l = left two layers: x=-1 and x=0
+          slices = isLowercase ? [-1, 0] : [-1];
           dirMult = 1;
           break;
         case 'U':
           axis = 'y';
-          slice = isLowercase ? 2 : 1;
+          slices = isLowercase ? [1, 0] : [1];
           dirMult = -1;
           break;
         case 'D':
           axis = 'y';
-          slice = isLowercase ? -2 : -1;
+          slices = isLowercase ? [-1, 0] : [-1];
           dirMult = 1;
           break;
         case 'F':
           axis = 'z';
-          slice = isLowercase ? 2 : 1;
+          // Front is -1 (toward camera). f lowercase includes front middle (z=-1 and z=0)
+          slices = isLowercase ? [-1, 0] : [-1];
           dirMult = -1;
           break;
         case 'B':
           axis = 'z';
-          slice = isLowercase ? -2 : -1;
+          // Back is +1. b lowercase includes back middle (z=1 and z=0)
+          slices = isLowercase ? [1, 0] : [1];
           dirMult = 1;
           break;
       }
@@ -196,14 +203,14 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
       // 处理中层转动和整体转动
       switch (baseChar) {
         // 中层转动
-        case 'E': axis = 'y'; slice = 0; dirMult = 1; isMiddleLayer = true; break;  // 中层水平转动
-        case 'M': axis = 'x'; slice = 0; dirMult = -1; isMiddleLayer = true; break; // 中层垂直转动
-        case 'S': axis = 'z'; slice = 0; dirMult = -1; isMiddleLayer = true; break; // 中层前后转动
+        case 'E': axis = 'y'; slices = [0]; dirMult = 1; isMiddleLayer = true; break;  // 中层水平转动
+        case 'M': axis = 'x'; slices = [0]; dirMult = -1; isMiddleLayer = true; break; // 中层垂直转动
+        case 'S': axis = 'z'; slices = [0]; dirMult = -1; isMiddleLayer = true; break; // 中层前后转动
         
         // 整体转动
-        case 'Z': axis = 'z'; slice = 0; dirMult = -1; isWholeCube = true; break; // 整体Z轴转动
-        case 'Y': axis = 'y'; slice = 0; dirMult = -1; isWholeCube = true; break; // 整体Y轴转动
-        case 'X': axis = 'x'; slice = 0; dirMult = -1; isWholeCube = true; break; // 整体X轴转动
+        case 'Z': axis = 'z'; slices = [0]; dirMult = -1; isWholeCube = true; break; // 整体Z轴转动
+        case 'Y': axis = 'y'; slices = [0]; dirMult = -1; isWholeCube = true; break; // 整体Y轴转动
+        case 'X': axis = 'x'; slices = [0]; dirMult = -1; isWholeCube = true; break; // 整体X轴转动
         
         default: return null;
       }
@@ -211,13 +218,13 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
 
     return {
       axis,
-      slice,
+      slices,
       direction: (dirMult * (isReverse ? -1 : 1)) as 1 | -1,
       speed,
       degrees,
       isMiddleLayer,
       isWholeCube
-    };
+    } as any;
   };
 
   // Animation Loop
@@ -247,11 +254,11 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
           if (move.axis === 'y' && Math.abs(pos.y) < 0.1) matches = true;  // E: 中层水平
           if (move.axis === 'z' && Math.abs(pos.z) < 0.1) matches = true;  // S: 中层前后
         }
-        // 单层转动 (slice = ±1) 和两层转动 (slice = ±2)
+        // 单层转动 (slices array contains one or more slice coordinates)
         else {
-          if (move.axis === 'x' && Math.abs(pos.x - move.slice) < 0.1) matches = true;
-          if (move.axis === 'y' && Math.abs(pos.y - move.slice) < 0.1) matches = true;
-          if (move.axis === 'z' && Math.abs(pos.z - move.slice) < 0.1) matches = true;
+          if (move.axis === 'x' && Array.isArray(move.slices) && move.slices.some((s: number) => Math.abs(pos.x - s) < 0.1)) matches = true;
+          if (move.axis === 'y' && Array.isArray(move.slices) && move.slices.some((s: number) => Math.abs(pos.y - s) < 0.1)) matches = true;
+          if (move.axis === 'z' && Array.isArray(move.slices) && move.slices.some((s: number) => Math.abs(pos.z - s) < 0.1)) matches = true;
         }
         
         if (matches) {
@@ -334,7 +341,7 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
             key={data.id}
             args={[0.95, 0.95, 0.95]}
             position={data.pos}
-            ref={(el) => { if (el) cubiesRef.current[index] = el; }}
+            ref={(el) => { if (el) cubiesRef.current[index] = el as any; }}
           >
             {/*
               Material Order for Three.js BoxGeometry:

@@ -47,46 +47,28 @@ const App = () => {
         setCapsLockOn(e.getModifierState('CapsLock'));
       }
       
-      // 支持的操作键
-      const validKeys = ['r', 'l', 'u', 'd', 'f', 'b', 'e', 'm', 's', 'x', 'y', 'z'];
+      // 支持的操作键 (包含大小写字母)
+      const validKeys = ['r', 'l', 'u', 'd', 'f', 'b', 'e', 'm', 's', 'x', 'y', 'z',
+                        'R', 'L', 'U', 'D', 'F', 'B', 'E', 'M', 'S', 'X', 'Y', 'Z'];
       
-      // Space: Reset view to standard perspective (blue, yellow, red)
-      if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault();
-        if (controlsRef.current) {
-          controlsRef.current.reset();
-          controlsRef.current.update();
-        }
-        return;
-      }
+      // // Space: Reset view to standard perspective (blue, yellow, red)
+      // if (e.code === 'Space' && !e.repeat) {
+      //   e.preventDefault();
+      //   if (controlsRef.current) {
+      //     controlsRef.current.reset();
+      //     controlsRef.current.update();
+      //   }
+      //   return;
+      // }
       
       // 处理魔方操作键
-      if (validKeys.includes(key.toLowerCase()) && !e.repeat) {
+      if (validKeys.includes(key) && !e.repeat) {
         e.preventDefault();
         
-        // 确定实际的操作字母
+        // 确定实际的操作字母 (保持原始大小写)
         let actualKey = key;
         
-        // 修正大小写逻辑：单层转动为大写，两层转动为小写
-        // // 默认模式：大写字母 → 单层转动
-        // // 按住Shift：小写字母 → 两层转动
-        // // Caps Lock开启时：默认小写 → 两层转动，按住Shift则大写 → 单层转动
-        // if (capsLockOn) {
-        //   // Caps Lock开启时，默认小写（两层转动）
-        //   actualKey = key.toLowerCase();
-        //   // 按住Shift时，切换为大写（单层转动）
-        //   if (isShift) {
-        //     actualKey = key.toUpperCase();
-        //   }
-        // } else {
-        //   // Caps Lock关闭时，默认大写（单层转动）
-        //   actualKey = key.toUpperCase();
-        //   // 按住Shift时，切换为小写（两层转动）
-        //   if (isShift) {
-        //     actualKey = key.toLowerCase();
-        //   }
-        // }
-        
+
         // 仅支持Ctrl键进行逆时针旋转
         const isReverse = isCtrl;
         
@@ -289,14 +271,6 @@ const App = () => {
                  <div className="flex justify-between">
                    <span><kbd className="bg-white/10 px-1 rounded">Caps Lock</kbd></span>
                    <span>大写锁定</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span><kbd className="bg-white/10 px-1 rounded">Space</kbd></span>
-                   <span>重置视角</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span>字母 + <kbd className="bg-white/10 px-1 rounded">2</kbd></span>
-                   <span>180度转动</span>
                  </div>
                  <div className="mt-1 text-gray-400 text-center">
                    <span>当前状态: {capsLockOn ? '大写锁定开启 (两层转动)' : '小写模式 (单层转动)'}</span>
