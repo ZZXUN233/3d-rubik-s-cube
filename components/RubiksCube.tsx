@@ -22,6 +22,7 @@ const COLORS = {
 
 interface RubiksCubeProps {
   onMoveComplete?: () => void;
+  onMoveStart?: () => void;
 }
 
 export interface RubiksCubeRef {
@@ -51,7 +52,7 @@ const getFaceColors = (x: number, y: number, z: number) => {
 const PI_2 = Math.PI / 2;
 const DEFAULT_SPEED = 0.15; // Radians per frame approx
 
-const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete }, ref) => {
+const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete, onMoveStart }, ref) => {
   const groupRef = useRef<THREE.Group>(null);
   const { scene } = useThree();
   
@@ -174,6 +175,9 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete 
     if (!currentMove.current && moveQueue.current.length > 0) {
       const move = moveQueue.current.shift()!;
       isAnimating.current = true;
+      
+      // Play sound when move starts
+      if (onMoveStart) onMoveStart();
       
       const activeCubies: THREE.Mesh[] = [];
       

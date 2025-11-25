@@ -109,7 +109,7 @@ const App = () => {
         // For now, let's set it to idle after a safe duration, allowing user to start playing.
         setTimeout(() => {
             setGameState('playing');
-        }, 2000); 
+        }, 2000);
     }, 100);
   };
 
@@ -142,6 +142,7 @@ const App = () => {
           <RubiksCube
             key={cubeKey}
             ref={cubeRef}
+            onMoveStart={playRotationSound}
             onMoveComplete={() => {
                // Could check for win condition here if we tracked logic state strictly
             }}
