@@ -6,7 +6,7 @@ export const useAudio = (audioPath: string) => {
   const play = useCallback(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio(audioPath);
-      audioRef.current.volume = 1.5; // 设置音量
+      audioRef.current.volume = 1; // 设置音量
     }
     
     // 重置音频到开始位置并播放

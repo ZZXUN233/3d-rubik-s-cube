@@ -11,6 +11,7 @@ const App = () => {
   const [gameState, setGameState] = useState<GameState>('idle');
   const [moveCount, setMoveCount] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [capsLockOn, setCapsLockOn] = useState(false); // 大写锁定状态
   const timerRef = useRef<number | null>(null);
   const [cubeKey, setCubeKey] = useState(0); // State for re-mounting the cube
   const lastKeyPressTime = useRef<number>(0); // Track last key press time for speed calculation
@@ -37,9 +38,17 @@ const App = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (gameState === 'scrambling') return;
 
-      const key = e.key.toUpperCase();
-      const validKeys = ['R', 'L', 'U', 'D', 'F', 'B'];
-      const cubeRotationKeys = ['X', 'Y', 'Z'];
+      const key = e.key;
+      const isCtrl = e.ctrlKey;
+      const isShift = e.shiftKey;
+      
+      // 检测Caps Lock状态 - 使用getModifierState方法
+      if (e.getModifierState('CapsLock') !== capsLockOn) {
+        setCapsLockOn(e.getModifierState('CapsLock'));
+      }
+      
+      // 支持的操作键
+      const validKeys = ['r', 'l', 'u', 'd', 'f', 'b', 'e', 'm', 's', 'x', 'y', 'z'];
       
       // Space: Reset view to standard perspective (blue, yellow, red)
       if (e.code === 'Space' && !e.repeat) {
@@ -48,23 +57,53 @@ const App = () => {
           controlsRef.current.reset();
           controlsRef.current.update();
         }
+        return;
       }
-      // X, Y, Z keys for cube rotation with Shift for reverse
-      else if (cubeRotationKeys.includes(key) && !e.repeat) {
+      
+      // 处理魔方操作键
+      if (validKeys.includes(key.toLowerCase()) && !e.repeat) {
         e.preventDefault();
-        const isReverse = e.shiftKey;
-        // Play rotation sound
-        // playRotationSound();
-        // Rotate entire cube around specified axis
-        cubeRef.current?.performMove(key, isReverse, 0.2);
-      }
-      // Original face rotation keys
-      else if (validKeys.includes(key)) {
+        
+        // 确定实际的操作字母
+        let actualKey = key;
+        
+        // 修正大小写逻辑：单层转动为大写，两层转动为小写
+        // // 默认模式：大写字母 → 单层转动
+        // // 按住Shift：小写字母 → 两层转动
+        // // Caps Lock开启时：默认小写 → 两层转动，按住Shift则大写 → 单层转动
+        // if (capsLockOn) {
+        //   // Caps Lock开启时，默认小写（两层转动）
+        //   actualKey = key.toLowerCase();
+        //   // 按住Shift时，切换为大写（单层转动）
+        //   if (isShift) {
+        //     actualKey = key.toUpperCase();
+        //   }
+        // } else {
+        //   // Caps Lock关闭时，默认大写（单层转动）
+        //   actualKey = key.toUpperCase();
+        //   // 按住Shift时，切换为小写（两层转动）
+        //   if (isShift) {
+        //     actualKey = key.toLowerCase();
+        //   }
+        // }
+        
+        // 仅支持Ctrl键进行逆时针旋转
+        const isReverse = isCtrl;
+        
+        // 调试信息
+        console.log('Key pressed:', {
+          key,
+          actualKey,
+          isCtrl,
+          isShift,
+          capsLockOn,
+          isReverse
+        });
+        
         if (gameState === 'idle') {
           setGameState('playing');
         }
         
-        const isPrime = e.shiftKey;
         // Calculate speed based on key press interval
         const currentTime = Date.now();
         const timeDiff = currentTime - lastKeyPressTime.current;
@@ -81,7 +120,7 @@ const App = () => {
         playRotationSound();
         
         // Trigger visual move with dynamic speed
-        cubeRef.current?.performMove(key, isPrime, speedMultiplier);
+        cubeRef.current?.performMove(actualKey, isReverse, speedMultiplier);
         // Update stats
         if (gameState === 'playing' || gameState === 'idle') {
             setMoveCount(prev => prev + 1);
@@ -91,7 +130,7 @@ const App = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState]);
+  }, [gameState, capsLockOn, playRotationSound]);
 
   const handleScramble = () => {
     setGameState('scrambling');
@@ -176,50 +215,96 @@ const App = () => {
               <span className="text-xs text-gray-400 uppercase tracking-wider">Moves</span>
               <span className="text-2xl font-mono font-bold text-blue-400">{moveCount}</span>
            </div>
+           <div className={`bg-black/30 backdrop-blur-md p-4 rounded-xl border ${capsLockOn ? 'border-green-500/50' : 'border-white/10'} text-white shadow-xl flex flex-col items-center min-w-[100px]`}>
+              <span className="text-xs text-gray-400 uppercase tracking-wider">Caps Lock</span>
+              <span className={`text-2xl font-mono font-bold ${capsLockOn ? 'text-green-400' : 'text-gray-400'}`}>
+                {capsLockOn ? 'ON' : 'OFF'}
+              </span>
+           </div>
         </div>
       </div>
 
       {/* Controls / Help */}
       <div className="absolute bottom-8 left-8 z-10 pointer-events-none">
         <div className="bg-black/40 backdrop-blur-md p-5 rounded-xl border border-white/10 text-white max-w-xs">
-           <h3 className="font-bold mb-2 border-b border-white/10 pb-1">Controls</h3>
-           <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-300">
-             <span><kbd className="bg-white/10 px-1 rounded">R</kbd> Right Face</span>
-             <span><kbd className="bg-white/10 px-1 rounded">L</kbd> Left Face</span>
-             <span><kbd className="bg-white/10 px-1 rounded">U</kbd> Up Face</span>
-             <span><kbd className="bg-white/10 px-1 rounded">D</kbd> Down Face</span>
-             <span><kbd className="bg-white/10 px-1 rounded">F</kbd> Front Face</span>
-             <span><kbd className="bg-white/10 px-1 rounded">B</kbd> Back Face</span>
-             <span className="col-span-2 text-xs mt-2 text-gray-500">Hold <kbd className="bg-white/10 px-1 rounded">Shift</kbd> to reverse rotation (e.g. R')</span>
-           </div>
-        </div>
-        
-        {/* Views Section */}
-        <div className="bg-black/40 backdrop-blur-md p-5 rounded-xl border border-white/10 text-white max-w-xs mt-4">
-           <h3 className="font-bold mb-2 border-b border-white/10 pb-1">Views</h3>
-           <div className="text-sm text-gray-300 space-y-2">
-             <div className="flex justify-between items-center">
-               <span><kbd className="bg-white/10 px-1 rounded">X</kbd> X-axis (Red-Orange)</span>
-               <span className="text-xs text-gray-500">顺时针90°</span>
+           <h3 className="font-bold mb-2 border-b border-white/10 pb-1">魔方操作</h3>
+           <div className="space-y-3 text-sm text-gray-300">
+             {/* 单层转动 */}
+             <div>
+               <h4 className="text-xs text-gray-400 mb-1">单层转动 (大写字母)</h4>
+               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                 <span><kbd className="bg-white/10 px-1 rounded">R</kbd> 右面</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">L</kbd> 左面</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">U</kbd> 顶面</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">D</kbd> 底面</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">F</kbd> 前面</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">B</kbd> 后面</span>
+               </div>
              </div>
-             <div className="flex justify-between items-center">
-               <span><kbd className="bg-white/10 px-1 rounded">Y</kbd> Y-axis (Blue-Green)</span>
-               <span className="text-xs text-gray-500">顺时针90°</span>
+             
+             {/* 两层转动 */}
+             <div>
+               <h4 className="text-xs text-gray-400 mb-1">两层转动 (小写字母)</h4>
+               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                 <span><kbd className="bg-white/10 px-1 rounded">r</kbd> 右两层</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">l</kbd> 左两层</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">u</kbd> 顶两层</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">d</kbd> 底两层</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">f</kbd> 前两层</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">b</kbd> 后两层</span>
+               </div>
              </div>
-             <div className="flex justify-between items-center">
-               <span><kbd className="bg-white/10 px-1 rounded">Z</kbd> Z-axis (Yellow-White)</span>
-               <span className="text-xs text-gray-500">顺时针90°</span>
+             
+             {/* 中层转动 */}
+             <div>
+               <h4 className="text-xs text-gray-400 mb-1">中层转动</h4>
+               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                 <span><kbd className="bg-white/10 px-1 rounded">e</kbd> 中层水平</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">m</kbd> 中层垂直</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">s</kbd> 中层前后</span>
+               </div>
              </div>
+             
+             {/* 整体转动 */}
+             <div>
+               <h4 className="text-xs text-gray-400 mb-1">整体转动</h4>
+               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                 <span><kbd className="bg-white/10 px-1 rounded">x</kbd> X轴</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">y</kbd> Y轴</span>
+                 <span><kbd className="bg-white/10 px-1 rounded">z</kbd> Z轴</span>
+               </div>
+             </div>
+             
+             {/* 操作说明 */}
              <div className="pt-2 border-t border-white/10">
-               <div className="flex justify-between items-center">
-                 <span><kbd className="bg-white/10 px-1 rounded">Shift</kbd> + <kbd className="bg-white/10 px-1 rounded">X/Y/Z</kbd></span>
-                 <span className="text-xs text-gray-500">反向旋转</span>
+               <div className="space-y-2 text-xs text-gray-500">
+                 <div className="flex justify-between">
+                   <span>按住 <kbd className="bg-white/10 px-1 rounded">Ctrl</kbd></span>
+                   <span>逆时针转动 (加撇号)</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span>按住 <kbd className="bg-white/10 px-1 rounded">Shift</kbd></span>
+                   <span>切换大小写</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span><kbd className="bg-white/10 px-1 rounded">Caps Lock</kbd></span>
+                   <span>大写锁定</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span><kbd className="bg-white/10 px-1 rounded">Space</kbd></span>
+                   <span>重置视角</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span>字母 + <kbd className="bg-white/10 px-1 rounded">2</kbd></span>
+                   <span>180度转动</span>
+                 </div>
+                 <div className="mt-1 text-gray-400 text-center">
+                   <span>当前状态: {capsLockOn ? '大写锁定开启 (两层转动)' : '小写模式 (单层转动)'}</span>
+                 </div>
+                 <div className="mt-1 text-gray-400">
+                   <span>标准视角：蓝、黄、红三面</span>
+                 </div>
                </div>
-               <div className="flex justify-between items-center mt-2">
-                 <span><kbd className="bg-white/10 px-1 rounded">Space</kbd></span>
-                 <span className="text-xs text-gray-500">重置视角</span>
-               </div>
-               <span className="text-xs text-gray-500 mt-1 block">斜视角：蓝、黄、红三面</span>
              </div>
            </div>
         </div>

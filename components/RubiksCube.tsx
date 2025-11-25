@@ -143,30 +143,76 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
     }
   }));
 
-  const parseMove = (char: string, isReverse: boolean, speed: number): CubeMove | null => {
-    const direction = isReverse ? 1 : -1;
+  const parseMove = (moveName: string, isReverse: boolean, speed: number): CubeMove | null => {
+    // 解析移动名称，支持完整魔方标记法
+    const move = moveName.trim();
+    const isDouble = move.includes('2'); // 检查是否是180度转动
+    const isLowercase = move === move.toLowerCase() && !isDouble; // 检查是否是小写（两层转动）
+    const baseMove = isDouble ? move.replace('2', '') : move;
+    const baseChar = baseMove.toUpperCase();
+    
     let axis: 'x'|'y'|'z' = 'x';
     let slice = 0;
     let dirMult = 1;
+    let degrees = isDouble ? Math.PI : Math.PI / 2; // 180度或90度
 
-    switch (char.toUpperCase()) {
-      case 'R': axis = 'x'; slice = 1; dirMult = -1; break;
-      case 'L': axis = 'x'; slice = -1; dirMult = 1; break;
-      case 'U': axis = 'y'; slice = 1; dirMult = -1; break;
-      case 'D': axis = 'y'; slice = -1; dirMult = 1; break;
-      case 'F': axis = 'z'; slice = 1; dirMult = -1; break;
-      case 'B': axis = 'z'; slice = -1; dirMult = 1; break;
-      case 'Z': axis = 'z'; slice = 0; dirMult = -1; break; // Whole cube rotation around Z axis (yellow-white)
-      case 'Y': axis = 'y'; slice = 0; dirMult = -1; break; // Whole cube rotation around Y axis (blue-green)
-      case 'X': axis = 'x'; slice = 0; dirMult = -1; break; // Whole cube rotation around X axis (red-orange)
-      default: return null;
+    // 处理单层转动和两层转动
+    if (['R', 'L', 'U', 'D', 'F', 'B'].includes(baseChar)) {
+      switch (baseChar) {
+        case 'R':
+          axis = 'x';
+          slice = isLowercase ? 2 : 1;
+          dirMult = -1;
+          break;
+        case 'L':
+          axis = 'x';
+          slice = isLowercase ? -2 : -1;
+          dirMult = 1;
+          break;
+        case 'U':
+          axis = 'y';
+          slice = isLowercase ? 2 : 1;
+          dirMult = -1;
+          break;
+        case 'D':
+          axis = 'y';
+          slice = isLowercase ? -2 : -1;
+          dirMult = 1;
+          break;
+        case 'F':
+          axis = 'z';
+          slice = isLowercase ? 2 : 1;
+          dirMult = -1;
+          break;
+        case 'B':
+          axis = 'z';
+          slice = isLowercase ? -2 : -1;
+          dirMult = 1;
+          break;
+      }
+    } else {
+      // 处理中层转动和整体转动
+      switch (baseChar) {
+        // 中层转动 - 修正slice值，中层应该是slice=0.5（中间层）
+        case 'E': axis = 'y'; slice = 0; dirMult = 1; break;  // 中层水平转动
+        case 'M': axis = 'x'; slice = 0; dirMult = -1; break; // 中层垂直转动
+        case 'S': axis = 'z'; slice = 0; dirMult = -1; break; // 中层前后转动
+        
+        // 整体转动
+        case 'Z': axis = 'z'; slice = 0; dirMult = -1; break; // 整体Z轴转动
+        case 'Y': axis = 'y'; slice = 0; dirMult = -1; break; // 整体Y轴转动
+        case 'X': axis = 'x'; slice = 0; dirMult = -1; break; // 整体X轴转动
+        
+        default: return null;
+      }
     }
 
     return {
       axis,
       slice,
       direction: (dirMult * (isReverse ? -1 : 1)) as 1 | -1,
-      speed
+      speed,
+      degrees
     };
   };
 
@@ -181,23 +227,28 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
       
       const activeCubies: THREE.Mesh[] = [];
       
-      // For whole cube rotation (slice = 0), select all cubies
-      if (move.slice === 0) {
-        activeCubies.push(...cubiesRef.current);
-      } else {
-        // For face rotation, select cubies on the specific slice
-        cubiesRef.current.forEach(mesh => {
-          const pos = mesh.position;
-          let matches = false;
+      // 选择要转动的方块
+      cubiesRef.current.forEach(mesh => {
+        const pos = mesh.position;
+        let matches = false;
+        
+        // 整体转动 (slice = 0 且是整体转动操作)
+        if (move.slice === 0 && move.axis !== undefined) {
+          // 检查是否是整体转动（x, y, z）还是中层转动（E, M, S）
+          // 这里我们假设所有slice=0且axis不为空的都是整体转动
+          matches = true;
+        }
+        // 单层转动 (slice = ±1) 和两层转动 (slice = ±2)
+        else {
           if (move.axis === 'x' && Math.abs(pos.x - move.slice) < 0.1) matches = true;
           if (move.axis === 'y' && Math.abs(pos.y - move.slice) < 0.1) matches = true;
           if (move.axis === 'z' && Math.abs(pos.z - move.slice) < 0.1) matches = true;
-          
-          if (matches) {
-            activeCubies.push(mesh);
-          }
-        });
-      }
+        }
+        
+        if (matches) {
+          activeCubies.push(mesh);
+        }
+      });
 
       const pivot = pivotRef.current;
       pivot.rotation.set(0, 0, 0);
@@ -211,7 +262,7 @@ const RubiksCube = forwardRef<RubiksCubeRef, RubiksCubeProps>(({ onMoveComplete,
         move,
         progress: 0,
         activeCubies,
-        targetRotation: (Math.PI / 2) * move.direction
+        targetRotation: move.degrees * move.direction
       };
     }
 
